@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="shopsphere@localhost" uuid="37521445-2380-4589-9168-f453144237ef">
+    <data-source source="LOCAL" name="shopsphere" uuid="37521445-2380-4589-9168-f453144237ef">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <remarks>shopsphere/admin/1qazxsw2@</remarks>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
       <jdbc-url>jdbc:postgresql://localhost:5432/shopsphere</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="shopsphere_db" uuid="038f5125-1d8c-4384-b0bb-bdce45834d74">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/shopsphere_db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>
