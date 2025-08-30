@@ -90,11 +90,16 @@ public class AdminUserController {
             response.put("message", "Invalid or missing authorization token");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
+        System.out.println("Passed validation");
 
         // Get current user role and id from token
         String currentUserRole = getCurrentUserRole(authToken);
         String currentUserId = getCurrentUserId(authToken);
         String targetRole = request.get("role");
+        
+        System.out.println("Current user role: " + currentUserRole);
+        System.out.println("Current user id: " + currentUserId);
+        System.out.println("Target role: " + targetRole);
 
         // Check permission
         if (!hasPermissionToCreateRole(currentUserRole, targetRole)) {
@@ -114,7 +119,6 @@ public class AdminUserController {
 
         String email = request.get("email");
         String password = request.get("password");
-        String fullName = request.get("fullName");
 
         if (userRepository.existsByEmail(email)) {
             response.put("success", false);
@@ -134,33 +138,37 @@ public class AdminUserController {
             Customer customer = new Customer();
             customer.setUser(savedUser);
             customer.setEmail(email);
-            customer.setFullName(fullName != null ? fullName : email.split("@")[0]);
             customerRepository.save(customer);
         }
 
-        // Assign Role
-        Optional<Role> roleOpt = roleRepository.findByName(targetRole);
+        // Assign Role - Convert to uppercase for consistency
+        String normalizedRole = targetRole.toUpperCase();
+        Optional<Role> roleOpt = roleRepository.findByName(normalizedRole);
         if (roleOpt.isPresent()) {
             UserRole userRole = new UserRole();
             userRole.setUser(savedUser);
             userRole.setRole(roleOpt.get());
             
             // Set created_by based on role
-            if ("SUPER_ADMIN".equals(targetRole) || "CUSTOMER".equals(targetRole)) {
+            if ("SUPER_ADMIN".equals(normalizedRole) || "CUSTOMER".equals(normalizedRole)) {
                 userRole.setCreatedBy(savedUser); // Self-created
             } else {
                 userRole.setCreatedBy(currentUser); // Created by admin/manager
             }
             
             userRoleRepository.save(userRole);
+        } else {
+            response.put("success", false);
+            response.put("message", "Invalid role: " + targetRole + ". Valid roles are: SUPER_ADMIN, ADMIN, MANAGER, STAFF, CUSTOMER");
+            return ResponseEntity.badRequest().body(response);
         }
 
         response.put("success", true);
         response.put("message", "User created successfully");
         response.put("userId", savedUser.getId());
-        response.put("role", targetRole);
+        response.put("role", normalizedRole);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
@@ -186,8 +194,28 @@ public class AdminUserController {
 
         List<User> users = userRepository.findAll();
         
+        // Convert to clean DTO format
+        List<Map<String, Object>> userDtos = users.stream()
+            .map(user -> {
+                Map<String, Object> userDto = new HashMap<>();
+                userDto.put("id", user.getId());
+                userDto.put("email", user.getEmail());
+                userDto.put("isActive", user.getIsActive());
+                userDto.put("createdAt", user.getCreatedAt());
+                userDto.put("updatedAt", user.getUpdatedAt());
+                
+                // Get user role
+                List<UserRole> userRoles = userRoleRepository.findByUserId(user.getId());
+                if (!userRoles.isEmpty()) {
+                    userDto.put("role", userRoles.get(0).getRole().getName());
+                }
+                
+                return userDto;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
         response.put("success", true);
-        response.put("users", users);
+        response.put("users", userDtos);
         response.put("total", users.size());
 
         return ResponseEntity.ok(response);
@@ -312,5 +340,76 @@ public class AdminUserController {
         response.put("message", "User deleted successfully");
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/super-admin")
+    public ResponseEntity<Map<String, Object>> createSuperAdmin(
+            @RequestHeader("Authorization") String authToken,
+            @RequestBody Map<String, String> request) {
+        
+        Map<String, Object> response = new HashMap<>();
+
+        // Validate auth token
+        if (!isValidAuthToken(authToken)) {
+            response.put("success", false);
+            response.put("message", "Invalid or missing authorization token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+
+        // Check if current user is SUPER_ADMIN
+        String currentUserRole = getCurrentUserRole(authToken);
+        if (!"SUPER_ADMIN".equals(currentUserRole)) {
+            response.put("success", false);
+            response.put("message", "Only SUPER_ADMIN can create another SUPER_ADMIN");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        // Validate secret key
+        String secretKey = request.get("secretKey");
+        String expectedSecretKey = "secret";
+        
+        if (secretKey == null || !expectedSecretKey.equals(secretKey)) {
+            response.put("success", false);
+            response.put("message", "Invalid secret key");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+
+        String email = request.get("email");
+        String password = request.get("password");
+
+        if (email == null || password == null) {
+            response.put("success", false);
+            response.put("message", "Email and password are required");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            response.put("success", false);
+            response.put("message", "Email already exists");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        // Create User
+        User user = new User();
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setIsActive(true);
+        User savedUser = userRepository.save(user);
+
+        // Assign SUPER_ADMIN role (ID = 1)
+        Optional<Role> superAdminRoleOpt = roleRepository.findById(1L);
+        if (superAdminRoleOpt.isPresent()) {
+            UserRole userRole = new UserRole();
+            userRole.setUser(savedUser);
+            userRole.setRole(superAdminRoleOpt.get());
+            userRole.setCreatedBy(savedUser); // Self-created
+            userRoleRepository.save(userRole);
+        }
+
+        response.put("success", true);
+        response.put("message", "Super Admin created successfully");
+        response.put("role", "SUPER_ADMIN");
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 } 

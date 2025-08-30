@@ -67,7 +67,6 @@ public class AuthController {
         Customer customer = new Customer();
         customer.setUser(savedUser);
         customer.setEmail(email);
-        customer.setFullName(email.split("@")[0]); // Use email prefix as full name
         customerRepository.save(customer);
 
         // Assign CUSTOMER role (ID = 5)

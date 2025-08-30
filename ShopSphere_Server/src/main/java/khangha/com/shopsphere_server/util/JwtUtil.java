@@ -2,7 +2,6 @@ package khangha.com.shopsphere_server.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +45,7 @@ public class JwtUtil {
 
     public String extractUserId(String token) {
         Claims claims = extractAllClaims(token);
-        return claims.get("userId", String.class);
+        return claims.get("sub", String.class);
     }
 
     public Date extractExpiration(String token) {
